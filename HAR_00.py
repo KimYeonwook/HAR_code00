@@ -102,13 +102,6 @@ else:
     number_of_each_class = config.get("number_of_each_class_UCI")
 
 # Model =======================================================================
-# ModelNumb == 0 : Double head 1D CNN + single head GRU
-# ModelNumb == 1 : Dilated causual 1D CNN + Single head 1D CNN + single head GRU
-# ModelNumb == 2 : -
-# ModelNumb == 3 : Single head 1D CNN
-# ModelNumb == 4 : Double head 1D CNN
-# ModelNumb == 5 : Single head 1D CNN + Bidirectional GRU
-# ModelNumb == 6 : Bidirectional GRU
 
 ModelNumb = config.get("ModelNumb")
 NameofModel = config.get("NameofModel")
@@ -581,55 +574,7 @@ for ModelN in ModelNumb:
         mataLearner = Dense(6, activation='softmax')(mataLearner)
         model = Model(inputs=[inputs3], outputs=mataLearner)
         model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1score])
-    
-    elif ModelN == 8:
         
-        number_of_head = 1
-
-        nb_filters = 256
-        nb_stacks = 1
-        dilation_depth = 3
-        use_skip_connections = True
-         
-        
-        def residual_block(x,i):
-            original_x = x
-            # TODO: initalization, regularization?
-            # Note: The AtrousConvolution1D with the 'causal' flag is implemented in github.com/basveeling/keras#@wavenet.
-            tanh_out = Conv1D(nb_filters, 2, dilation_rate=2 ** i, padding='causal',
-                                                 name='dilated_conv_%d_tanh_s%d' % (2 ** i, s), activation='tanh')(x)
-            sigm_out = Conv1D(nb_filters, 2, dilation_rate=2 ** i, padding='causal',
-                                                 name='dilated_conv_%d_sigm_s%d' % (2 ** i, s), activation='sigmoid')(x)
-            x = Multiply(name='gated_activation_%d_s%d' % (i, s))([tanh_out, sigm_out])
-    
-            res_x = Conv1D(nb_filters, 1, padding='same')(x)
-            skip_x = Conv1D(nb_filters, 1, padding='same')(x)
-            res_x = Add()([original_x, res_x])
-            return res_x, skip_x
-         
-        
-        # head 4 (Wavenet)
-        inputs1 = Input(shape=X_train[0].shape)
-        skip_connections = []
-        wavenet = Conv1D(nb_filters, 2, dilation_rate=1, padding='causal', name='initial_causal_conv')(inputs1)
-        for s in range(nb_stacks):
-            for i in range(0, dilation_depth + 1):
-                wavenet, skip_out = residual_block(wavenet,i)
-                skip_connections.append(skip_out)
-    
-        if use_skip_connections:
-            wavenet = Add()(skip_connections)
-            
-        wavenet = Activation('relu')(wavenet)
-        wavenet = Flatten()(wavenet)
-
-        # merge
-        #merged = concatenate([conv1, conv2, GRUlayer])
-        mataLearner = Dropout(0.7)(wavenet)        
-        mataLearner = Dense(64, activation='relu')(mataLearner)
-        mataLearner = Dense(6, activation='softmax')(mataLearner)
-        model = Model(inputs=[inputs1], outputs=mataLearner)
-        model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1score])
         
     #plot_model(model, to_file=log_path+'structure_of_model.png', show_shapes=True, show_layer_names=True)
       
