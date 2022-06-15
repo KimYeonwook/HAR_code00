@@ -1,0 +1,148 @@
+
+# load data ============================================================
+if(WISDM0_UCI1 == 0):
+    Fs = 20
+    frame_size = Fs*4 # 80
+    hop_size = Fs*2 # 40
+    
+    file = open('HAR_code/WISDM/WISDM_ar_v1.1/WISDM_ar_v1.1_raw.txt')
+    lines = file.readlines()
+    
+    processedList = []
+    
+    for i, line in enumerate(lines):
+        try:
+            line = line.split(',')
+            last = line[5].split(';')[0]
+            last = last.strip()
+            if last == '':
+                print('break!')
+                #break;
+            else: #original has no else
+                temp = [line[0], line[1], line[2], line[3], line[4], last]
+                processedList.append(temp)
+        except:
+            print('Error at line number: ', i)
+            
+    columns = ['user', 'activity', 'time', 'x', 'y', 'z']
+    data = pd.DataFrame(data = processedList, columns = columns)
+    #data.head()
+    
+    activities = data['activity'].value_counts().index
+    activities
+    
+    df = data.drop(['user', 'time'], axis = 1).copy()
+    #df.head()
+    
+    data['activity'].value_counts()
+    
+    # improve data imbalance problem
+    
+    label = LabelEncoder()
+    data['label'] = label.fit_transform(data['activity'])
+    #data.head()
+    
+    X = data[['x', 'y', 'z']]
+    y = data['label']
+    
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    
+    scaled_X = pd.DataFrame(data = X, columns = ['x', 'y', 'z'])
+    scaled_X['label'] = y.values
+    scaled_X.head()
+    
+    X, y = get_frames(scaled_X, frame_size, hop_size)
+    X.shape, y.shape        
+    
+    class_name = label.classes_
+    
+else:
+    def load_file(filepath):
+        dataframe = read_csv(filepath, header=None, delim_whitespace=True)
+        return dataframe.values
+        
+    def load_group(filenames, prefix=''):
+        loaded = list()
+        for name in filenames:
+            data = load_file(prefix + name)
+            loaded.append(data)
+        loaded = dstack(loaded)
+        return loaded
+    
+    def load_dataset_group(group, prefix=''):
+        filepath = prefix + group + '/Inertial Signals/'
+        # load all 9 files as a single array
+        filenames = list()
+        # total acceleration
+        filenames += ['total_acc_x_'+group+'.txt', 'total_acc_y_'+group+'.txt', 'total_acc_z_'+group+'.txt']
+        # body acceleration
+        filenames += ['body_acc_x_'+group+'.txt', 'body_acc_y_'+group+'.txt', 'body_acc_z_'+group+'.txt']
+        # body gyroscope
+        filenames += ['body_gyro_x_'+group+'.txt', 'body_gyro_y_'+group+'.txt', 'body_gyro_z_'+group+'.txt']
+        # load input data
+        X = load_group(filenames, filepath)
+        # load class output
+        y = load_file(prefix + group + '/y_'+group+'.txt')
+        return X, y   
+    
+    def load_dataset(prefix=''):
+        	# load all train
+        trainX, trainy = load_dataset_group('train', prefix + 'HAR_code/UCI/UCI HAR Dataset/')
+        print(trainX.shape, trainy.shape)
+        # load all test
+        testX, testy = load_dataset_group('test', prefix + 'HAR_code/UCI/UCI HAR Dataset/')
+        print(testX.shape, testy.shape)
+        # zero-offset class values
+        trainy = trainy - 1
+        testy = testy - 1
+
+        print(trainX.shape, trainy.shape, testX.shape, testy.shape)
+        return trainX, trainy, testX, testy
+    
+    if SMOTEon == 1:
+        X, y, X_test, y_test = load_dataset()
+        X=np.concatenate((X,X_test), axis=0)
+        y=np.concatenate((y,y_test), axis=0)
+    else:
+        X_train, y_train, X_test, y_test = load_dataset()
+        
+    class_name = np.array(["Walking","Walking Upstairs","Walking Downstairs","Sitting","Standing","Laying"])
+
+unique, counts = np.unique(y, return_counts=True)
+print('Before augmentation', dict(zip(unique, counts)))
+
+# Oversampling based augmentation ==============================================
+if SMOTEon == 1:
+    X_oneD = np.zeros((len(X),len(X[0])*len(X[0][0])))
+    for window_idx in range(len(X)):    
+        buf = np.array([])
+        for timestep_idx in range(len(X[0])):
+                buf = np.append(buf, X[window_idx][timestep_idx])
+        X_oneD[window_idx] = buf
+    
+    strategy = {0:number_of_each_class, 1:number_of_each_class, 2:number_of_each_class, 3:number_of_each_class, 4:number_of_each_class, 5:number_of_each_class}
+    oversample = SMOTE(k_neighbors=10, sampling_strategy=strategy) # k_neighbors 수가 모델보다 데이터가 부족할 수 있음
+    X_SMOTE, y_SMOTE = oversample.fit_resample(X_oneD, y)   
+    
+    X_SMOTE = np.reshape(X_SMOTE,(len(X_SMOTE),len(X[0]),len(X[0][0])))
+    
+    '''
+    if WISDM0_UCI1 == 0:
+        X_train, X_test, y_train, y_test = train_test_split(X_SMOTE, y_SMOTE, test_size = 0.3, random_state = 0, stratify = y_SMOTE)
+    else:
+        X_train = X_SMOTE
+        y_train = y_SMOTE
+    '''
+    X_train, X_test, y_train, y_test = train_test_split(X_SMOTE, y_SMOTE, test_size = 0.3, random_state = 0, stratify = y_SMOTE)
+    X_train.shape, X_test.shape
+    
+
+'''
+if WISDM0_UCI1 == 0:
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 0, stratify = y)
+    X_train.shape, X_test.shape
+'''
+#one hot encoding
+y_train = to_categorical(y_train)
+y_test = to_categorical(y_test)
