@@ -1,0 +1,32 @@
+{
+    "cuda": 1,
+
+    "WISDM0_UCI1": 1,
+    "dataset_name": ["WISDM", "UCI_HAR"],
+
+    "ModelNumb": [3,4,6,7],
+    "NameofModel": [
+        "DCplusBG",                
+        "SC",
+        "DC",
+        "SCNNplusBiGRU",
+        "SCNNafterBiGRU",
+        "BiGRU",
+        "DBiGRU",
+        "GRU"
+
+    ],
+
+    "epochs": 500,
+    "validation":  1,
+    "verbose":  1,
+    "batch_size":  1024,
+    "early_stopping_option":  1,
+    "early_stopping_patience_number":  20,
+
+    "Aug_Option":  4,
+    "name_of_augmentation_algorithm": ["Original","SMOTE","ADASYN","BorderlineSMOTE","RandomOverSampler"],
+
+    "number_of_each_class_WISDM": 11000,
+    "number_of_each_class_UCI": 3500
+}
