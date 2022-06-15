@@ -575,7 +575,6 @@ for ModelN in ModelNumb:
         model = Model(inputs=[inputs3], outputs=mataLearner)
         model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1score])
         
-        
     #plot_model(model, to_file=log_path+'structure_of_model.png', show_shapes=True, show_layer_names=True)
       
        
